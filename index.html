@@ -35,8 +35,6 @@ button{
 
 <div id="box">待機中...</div>
 
-<p id="result"></p>
-
 <script>
 let testDuration = 180000;  // 3分
 let testStartTime;
@@ -45,10 +43,11 @@ let startTime;
 let waiting = false;
 let isRunning = false;
 
+let timeoutId = null;
+
 let results = [];
 
 const box = document.getElementById("box");
-const result = document.getElementById("result");
 const startBtn = document.getElementById("startBtn");
 
 // スタート
@@ -65,7 +64,8 @@ function startTest(){
     box.textContent = "待機中...";
     waiting = true;
 
-    let delay = Math.random() * 8000 + 2000;
+    // ✅ 2〜8秒
+    let delay = Math.random() * 6000 + 2000;
 
     setTimeout(() => {
         if (!isRunning) return;
@@ -74,6 +74,21 @@ function startTest(){
         box.textContent = "クリック！";
         startTime = Date.now();
         waiting = false;
+
+        // ✅ 10秒無反応 → miss
+        timeoutId = setTimeout(() => {
+            if (!isRunning) return;
+
+            results.push("miss");
+
+            if (Date.now() - testStartTime >= testDuration) {
+                endTest();
+                return;
+            }
+
+            startTest();
+        }, 10000);
+
     }, delay);
 }
 
@@ -87,19 +102,12 @@ box.addEventListener("click", () => {
         let endTime = Date.now();
         let reaction = endTime - startTime;
 
+        clearTimeout(timeoutId);
+
         results.push(reaction);
 
-        // 表示は何もしない（完全非表示）
-
         if (Date.now() - testStartTime >= testDuration) {
-
-            alert("テスト終了");
-
-            downloadCSV();
-
-            isRunning = false;
-            startBtn.disabled = false;
-
+            endTest();
             return;
         }
 
@@ -107,7 +115,36 @@ box.addEventListener("click", () => {
     }
 });
 
-// 日付＋時間のファイル名
+// ✅ テスト終了処理まとめ
+function endTest() {
+    isRunning = false;
+    startBtn.disabled = false;
+
+    showStats();  // 結果表示
+    downloadCSV();
+}
+
+// ✅ ラプス・ミス表示
+function showStats() {
+    let lapseCount = 0;
+    let missCount = 0;
+
+    results.forEach(r => {
+        if (r === "miss") {
+            missCount++;
+        } else if (r >= 500) {
+            lapseCount++;
+        }
+    });
+
+    alert(
+        "テスト終了\n\n" +
+        "ラプス: " + lapseCount + " 回\n" +
+        "ミス: " + missCount + " 回"
+    );
+}
+
+// ✅ CSVダウンロード
 function downloadCSV() {
 
     let now = new Date();
